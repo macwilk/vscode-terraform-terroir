@@ -49,6 +49,8 @@ const documentSelector: DocumentSelector = [
   { scheme: 'file', language: 'terraform-test' },
   { scheme: 'file', language: 'terraform-mock' },
   { scheme: 'file', language: 'terraform-search' },
+  { scheme: 'file', language: 'terraform-policy' },
+  { scheme: 'file', language: 'terraform-policytest' },
 ];
 const outputChannel = vscode.window.createOutputChannel(brand);
 const tfcOutputChannel = vscode.window.createOutputChannel('HCP Terraform');
@@ -99,6 +101,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.workspace.createFileSystemWatcher('**/*.tfcomponent.hcl'),
         vscode.workspace.createFileSystemWatcher('**/*.tfdeploy.hcl'),
         vscode.workspace.createFileSystemWatcher('**/*.tftest.hcl'),
+        vscode.workspace.createFileSystemWatcher('**/*.policy.hcl'),
+        vscode.workspace.createFileSystemWatcher('**/*.policytest.hcl'),
         vscode.workspace.createFileSystemWatcher('**/*.tfmock.hcl'),
         vscode.workspace.createFileSystemWatcher('**/*.tfquery.hcl'),
       ],

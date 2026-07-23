@@ -18,7 +18,7 @@
     "vscode": "^1.92.2"
   },
   "langServer": {
-    "version": "0.38.8"
+    "version": "0.39.0"
   },
   "syntax": {
     "version": "0.7.1"
@@ -51,7 +51,14 @@
     "onAuthenticationRequest:terraform",
     "onView:terraform-modules",
     "workspaceContains:**/*.tf",
-    "workspaceContains:**/*.tfvars"
+    "workspaceContains:**/*.tfvars",
+    "workspaceContains:**/*.tfcomponent.hcl",
+    "workspaceContains:**/*.tfdeploy.hcl",
+    "workspaceContains:**/*.tftest.hcl",
+    "workspaceContains:**/*.tfmock.hcl",
+    "workspaceContains:**/*.tfquery.hcl",
+    "workspaceContains:**/*.policy.hcl",
+    "workspaceContains:**/*.policytest.hcl"
   ],
   "main": "./dist/extension",
   "browser": "./dist/web/extension",
@@ -165,6 +172,34 @@
         }
       },
       {
+        "id": "terraform-policy",
+        "aliases": [
+          "Terraform Policy"
+        ],
+        "extensions": [
+          ".policy.hcl"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "dark": "assets/icons/terraform_feature.svg",
+          "light": "assets/icons/terraform_feature.svg"
+        }
+      },
+      {
+        "id": "terraform-policytest",
+        "aliases": [
+          "Terraform Policy Test"
+        ],
+        "extensions": [
+          ".policytest.hcl"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "dark": "assets/icons/terraform_feature.svg",
+          "light": "assets/icons/terraform_feature.svg"
+        }
+      },
+      {
         "id": "json",
         "extensions": [
           ".tfstate"
@@ -204,6 +239,16 @@
       },
       {
         "language": "terraform-search",
+        "scopeName": "source.hcl",
+        "path": "./syntaxes/hcl.tmGrammar.json"
+      },
+      {
+        "language": "terraform-policy",
+        "scopeName": "source.hcl",
+        "path": "./syntaxes/hcl.tmGrammar.json"
+      },
+      {
+        "language": "terraform-policytest",
         "scopeName": "source.hcl",
         "path": "./syntaxes/hcl.tmGrammar.json"
       }

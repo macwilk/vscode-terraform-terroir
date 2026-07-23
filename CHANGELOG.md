@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.39.2026071014 (2026-07-10)
+
+INTERNAL:
+
+* Bumped terraform-ls ([#2289](https://github.com/hashicorp/vscode-terraform/issues/2289))
+
+## 2.39.2026030417 (2026-03-04)
+
+INTERNAL:
+
+* Bumped terraform-ls ([#2189](https://github.com/hashicorp/vscode-terraform/issues/2189))
+
 ## 2.39.4 (2026-07-02)
 
 ENHANCEMENTS:
@@ -44,6 +56,24 @@ INTERNAL:
 
 * Bump minimatch from 3.1.2 to 3.1.5 ([#2201](https://github.com/hashicorp/vscode-terraform/issues/2201))
 * Bump the github-actions-breaking group across 1 directory with 3 updates ([#2198](https://github.com/hashicorp/vscode-terraform/issues/2198))
+
+## 2.38.2026022319 (2026-02-23)
+
+INTERNAL:
+
+* Bumped terraform-ls ([#2193](https://github.com/hashicorp/vscode-terraform/issues/2193))
+
+## 2.38.2026021014 (2026-02-10)
+
+INTERNAL:
+
+* Bumped terraform-ls ([#2178](https://github.com/hashicorp/vscode-terraform/issues/2178))
+
+## 2.38.2026020917 (2026-02-09)
+
+INTERNAL:
+
+* Bumped terraform-ls ([#2171](https://github.com/hashicorp/vscode-terraform/issues/2171))
 
 ## 2.38.8 (2026-03-03)
 
