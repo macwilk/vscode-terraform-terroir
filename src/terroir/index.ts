@@ -83,7 +83,7 @@ class Terroir {
       return;
     }
     if (this.status) {
-      this.status.text = `$(beaker) terroir: ${environmentName()}`;
+      this.status.text = `$(beaker) terroir: ${environmentName(editor.document.uri.fsPath)}`;
       this.status.show();
     }
   }
@@ -112,10 +112,11 @@ class Terroir {
   }
 
   private async selectEnvironment(): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
     const known = this.knownEnvironments();
     const picked = await vscode.window.showQuickPick(known.length ? known : ['staging', 'uat', 'prod'], {
       title: 'terroir environment',
-      placeHolder: `CAPITALRX_ENVIRONMENT (currently ${environmentName()})`,
+      placeHolder: `CAPITALRX_ENVIRONMENT (currently ${environmentName(editor?.document.uri.fsPath)})`,
     });
     if (!picked) {
       return;
@@ -148,7 +149,7 @@ class Terroir {
       'vscode.diff',
       source,
       rendered,
-      `${path.basename(source.fsPath)} (template ↔ ${environmentName()})`,
+      `${path.basename(source.fsPath)} (template ↔ ${environmentName(source.fsPath)})`,
     );
   }
 }

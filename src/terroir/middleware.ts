@@ -12,9 +12,11 @@ import {
   LanguageClient,
   Middleware,
 } from 'vscode-languageclient/node';
-import { isEnabled, isFormatGuardEnabled, isRenderEnabled, renderDebounceMs } from './config';
+import { indentJinjaBlocks, isEnabled, isFormatGuardEnabled, isRenderEnabled, renderDebounceMs } from './config';
 import { hasJinja } from './detect';
 import { safeLineEdits } from './formatEdits';
+import { runTerraformFmt, terraformAvailable } from './hclFormatter';
+import { formatTemplate } from './templateFormat';
 import { RenderStore } from './renderStore';
 import { findTerroirRoot } from './roots';
 
@@ -234,6 +236,10 @@ export class TerroirMiddleware {
         if (!this.isTemplate(document)) {
           return next(document, options, token);
         }
+        const whole = this.formatWholeTemplate(document);
+        if (whole) {
+          return whole;
+        }
         return this.safeFormattingEdits(document, await next(document, options, token));
       },
 
@@ -268,6 +274,28 @@ export class TerroirMiddleware {
 
   private isTemplate(document: vscode.TextDocument): boolean {
     return isEnabled() && document.languageId === 'terraform' && hasJinja(document.getText());
+  }
+
+  /**
+   * Format the template itself, with no render and no environment, so branches the current
+   * environment does not take are formatted too. Falls back to the render-based path when the
+   * terraform binary is missing or the template cannot be masked into parseable HCL.
+   */
+  private formatWholeTemplate(document: vscode.TextDocument): vscode.TextEdit[] | undefined {
+    if (!terraformAvailable()) {
+      return undefined;
+    }
+    const source = document.getText();
+    const formatted = formatTemplate(source, runTerraformFmt, { indentBlocks: indentJinjaBlocks() });
+    if (formatted === undefined) {
+      this.out.appendLine(`[terroir] ${document.uri.fsPath}: template could not be formatted directly`);
+      return undefined;
+    }
+    if (formatted === source) {
+      return [];
+    }
+    const end = document.lineAt(document.lineCount - 1).range.end;
+    return [new vscode.TextEdit(new vscode.Range(0, 0, end.line, end.character), formatted)];
   }
 
   /** Replay only the formatting edits that provably do not touch a template expression. */

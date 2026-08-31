@@ -467,6 +467,27 @@
             "default": "staging",
             "description": "CAPITALRX_ENVIRONMENT to render templates for. CAPITALRX_ENVIRONMENT_PREFIX is derived from it: empty for prod, otherwise \"<environment>-\"."
           },
+          "terraform.terroir.environmentByPath": {
+            "scope": "window",
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": "string"
+            },
+            "markdownDescription": "Per-stack environment overrides, for repositories whose stacks do not share an environment vocabulary. Each key is a path fragment; the longest one contained in a file's path wins, and `#terraform.terroir.environment#` applies to everything else. Example: `{ \"cloudhesive.capitalrx.com\": \"stagingcloudhesive\" }`."
+          },
+          "terraform.terroir.terraformPath": {
+            "scope": "window",
+            "type": "string",
+            "default": "",
+            "description": "Terraform binary used to format templates. Defaults to terraform on PATH. Without it, formatting falls back to the language server over the rendered file, which cannot reach branches the selected environment does not take."
+          },
+          "terraform.terroir.format.indentBlocks": {
+            "scope": "window",
+            "type": "boolean",
+            "default": true,
+            "description": "Indent the body of each Jinja block one level deeper than its tags, so conditional structure is visible. Turn off to keep bodies at the level of the surrounding HCL."
+          },
           "terraform.terroir.pythonPath": {
             "scope": "window",
             "type": "string",

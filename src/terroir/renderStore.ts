@@ -68,7 +68,7 @@ export class RenderStore implements vscode.Disposable {
     if (!root) {
       return;
     }
-    const env = currentEnvironment().name;
+    const env = currentEnvironment(dir).name;
 
     let result;
     try {
@@ -98,11 +98,10 @@ export class RenderStore implements vscode.Disposable {
     }
   }
 
-  /** Drop every render produced for a different environment. */
+  /** Drop every render whose environment no longer matches its own path. */
   invalidateForEnvChange(): void {
-    const env = currentEnvironment().name;
     for (const [key, doc] of this.docs) {
-      if (doc.env !== env) {
+      if (doc.env !== currentEnvironment(vscode.Uri.parse(key).fsPath).name) {
         this.docs.delete(key);
       }
     }

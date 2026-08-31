@@ -27,12 +27,35 @@ export function renderDebounceMs(): number {
   return config('terraform').get<number>('terroir.renderDebounceMs', 350);
 }
 
-export function environmentName(): string {
-  return config('terraform').get<string>('terroir.environment', 'staging') || 'staging';
+/**
+ * Stacks in one repository do not share an environment vocabulary, so a single
+ * setting is wrong somewhere. The longest configured path fragment contained in
+ * `fsPath` wins; without a match the workspace-wide setting applies.
+ */
+export function environmentName(fsPath?: string): string {
+  const fallback = config('terraform').get<string>('terroir.environment', 'staging') || 'staging';
+  if (!fsPath) {
+    return fallback;
+  }
+
+  const byPath = config('terraform').get<Record<string, string>>('terroir.environmentByPath', {});
+  let matched: string | undefined;
+  let matchedLength = 0;
+  for (const [fragment, env] of Object.entries(byPath)) {
+    if (fragment.length > matchedLength && fsPath.includes(fragment)) {
+      matched = env;
+      matchedLength = fragment.length;
+    }
+  }
+  return matched ?? fallback;
 }
 
 /** `source-env`: the prefix is empty for prod and `<env>-` everywhere else. */
-export function currentEnvironment(): TerroirEnv {
-  const name = environmentName();
+export function currentEnvironment(fsPath?: string): TerroirEnv {
+  const name = environmentName(fsPath);
   return { name, prefix: name === 'prod' ? '' : `${name}-` };
+}
+
+export function indentJinjaBlocks(): boolean {
+  return config('terraform').get<boolean>('terroir.format.indentBlocks', true);
 }
