@@ -208,6 +208,14 @@
     ],
     "grammars": [
       {
+        "scopeName": "terroir.jinja.injection",
+        "path": "./syntaxes-custom/terroir-jinja-injection.tmLanguage.json",
+        "injectTo": [
+          "source.hcl.terraform",
+          "source.hcl"
+        ]
+      },
+      {
         "language": "terraform",
         "scopeName": "source.hcl.terraform",
         "path": "./syntaxes/terraform.tmGrammar.json"
@@ -438,6 +446,48 @@
     },
     "configuration": [
       {
+        "title": "Terroir",
+        "order": 6,
+        "properties": {
+          "terraform.terroir.enable": {
+            "scope": "window",
+            "type": "boolean",
+            "default": true,
+            "description": "Enable terroir (Jinja2) support for .tf files. Only takes effect in a workspace containing a .terroir directory."
+          },
+          "terraform.terroir.render.enable": {
+            "scope": "window",
+            "type": "boolean",
+            "default": true,
+            "description": "Render templates with terroir before handing them to the language server, so diagnostics and completion see valid HCL."
+          },
+          "terraform.terroir.environment": {
+            "scope": "resource",
+            "type": "string",
+            "default": "staging",
+            "description": "CAPITALRX_ENVIRONMENT to render templates for. CAPITALRX_ENVIRONMENT_PREFIX is derived from it: empty for prod, otherwise \"<environment>-\"."
+          },
+          "terraform.terroir.pythonPath": {
+            "scope": "window",
+            "type": "string",
+            "default": "",
+            "description": "Python interpreter that can import terroir. Defaults to python3 on PATH."
+          },
+          "terraform.terroir.renderDebounceMs": {
+            "scope": "window",
+            "type": "number",
+            "default": 350,
+            "description": "How long to wait after a keystroke before re-rendering the template."
+          },
+          "terraform.terroir.formatGuard.enable": {
+            "scope": "window",
+            "type": "boolean",
+            "default": true,
+            "description": "Suppress terraform fmt on .tf files containing Jinja2 template syntax. terraform fmt cannot parse templates and will corrupt or refuse them."
+          }
+        }
+      },
+      {
         "title": "General",
         "order": 0,
         "properties": {
@@ -573,6 +623,18 @@
       }
     ],
     "commands": [
+      {
+        "command": "terraform.terroir.selectEnvironment",
+        "title": "Terroir: Select Environment"
+      },
+      {
+        "command": "terraform.terroir.showRendered",
+        "title": "Terroir: Show Rendered Template"
+      },
+      {
+        "command": "terraform.terroir.restartWorker",
+        "title": "Terroir: Restart Render Worker"
+      },
       {
         "command": "terraform.generateBugReport",
         "title": "HashiCorp Terraform: Generate Bug Report"
