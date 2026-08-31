@@ -6,7 +6,7 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { pythonPath } from './config';
+import { resetInterpreter, resolveInterpreter } from './python';
 import { RenderDirResult, TerroirRoot } from './types';
 
 interface Pending {
@@ -28,6 +28,7 @@ class Worker implements vscode.Disposable {
   constructor(
     private readonly gitRoot: string,
     private readonly scriptPath: string,
+    private readonly interpreter: string,
     private readonly out: vscode.OutputChannel,
   ) {}
 
@@ -69,7 +70,7 @@ class Worker implements vscode.Disposable {
     }
     this.restarts.push(now);
 
-    const child = spawn(pythonPath(), [this.scriptPath], {
+    const child = spawn(this.interpreter, [this.scriptPath], {
       cwd: this.gitRoot,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -172,19 +173,25 @@ export class WorkerPool implements vscode.Disposable {
     this.scriptPath = path.join(extensionPath, 'python', 'terroir_worker.py');
   }
 
-  renderDir(root: TerroirRoot, dir: string, env: string): Promise<RenderDirResult> {
+  async renderDir(root: TerroirRoot, dir: string, env: string): Promise<RenderDirResult> {
+    const interpreter = await resolveInterpreter(this.scriptPath, this.out);
+    if (!interpreter) {
+      throw new Error('no usable Python interpreter');
+    }
     let worker = this.workers.get(root.gitRoot);
     if (!worker) {
-      worker = new Worker(root.gitRoot, this.scriptPath, this.out);
+      worker = new Worker(root.gitRoot, this.scriptPath, interpreter, this.out);
       this.workers.set(root.gitRoot, worker);
     }
     return worker.renderDir(dir, env);
   }
 
   restartAll(): void {
+    resetInterpreter();
     for (const worker of this.workers.values()) {
       worker.restart();
     }
+    this.workers.clear();
   }
 
   dispose(): void {

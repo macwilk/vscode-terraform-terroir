@@ -471,7 +471,7 @@
             "scope": "window",
             "type": "string",
             "default": "",
-            "description": "Python interpreter that can import terroir. Defaults to python3 on PATH."
+            "description": "Python interpreter used to render templates. Any Python 3.9 or newer works; terroir itself is bundled with the extension. Leave empty to discover one."
           },
           "terraform.terroir.renderDebounceMs": {
             "scope": "window",

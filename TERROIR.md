@@ -20,8 +20,12 @@ never invoked.
 
 ## Requirements
 
-A `python3` that can `import terroir`, and a workspace with a `.terroir`
-directory. Without either, the extension behaves exactly like upstream.
+Python 3.9 or newer, and a workspace with a `.terroir` directory. terroir and
+its dependencies are bundled in `python/vendor`, so nothing needs installing —
+a system interpreter is enough, which matters because a GUI-launched editor
+does not inherit a login shell's PATH. An installed terroir takes precedence
+over the bundled copy. Without a usable Python or a `.terroir` directory, the
+extension behaves exactly like upstream and says so.
 
 ## Settings
 
@@ -30,7 +34,7 @@ directory. Without either, the extension behaves exactly like upstream.
 | `terraform.terroir.enable` | `true` | master switch |
 | `terraform.terroir.render.enable` | `true` | feed rendered HCL to terraform-ls |
 | `terraform.terroir.environment` | `staging` | `CAPITALRX_ENVIRONMENT` to render for |
-| `terraform.terroir.pythonPath` | `python3` | interpreter that can import terroir |
+| `terraform.terroir.pythonPath` | discovered | interpreter to render with; any Python 3.9+ |
 | `terraform.terroir.renderDebounceMs` | `350` | delay before re-rendering while typing |
 | `terraform.terroir.formatGuard.enable` | `true` | suppress `terraform fmt` on templates |
 
@@ -45,3 +49,4 @@ Everything lives in `src/terroir/`, `python/`, `syntaxes-custom/` and
 `terroir-tools/` — paths upstream does not use. Upstream files carry three
 added lines in `src/extension.ts` and three array appends in `package.json`.
 `terroir-tools/upstream-diff.sh` prints exactly that drift; keep it small.
+`terroir-tools/vendor-python.sh` regenerates `python/vendor`.

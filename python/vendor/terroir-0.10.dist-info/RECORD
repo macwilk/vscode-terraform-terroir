@@ -1,0 +1,12 @@
+../../bin/terroir,sha256=Y7P_EXOJuboB043ZI1Mqsch4IOi4fyPEaZUWLu_LWRI,178
+terroir-0.10.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+terroir-0.10.dist-info/METADATA,sha256=t2SlDHLkYq-n-LbFotPUKU8L471LAXvSetfB1YoIxRM,754
+terroir-0.10.dist-info/RECORD,,
+terroir-0.10.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+terroir-0.10.dist-info/WHEEL,sha256=wUyA8OaulRlbfwMtmQsvNngGrxQHAvkKcvRmdizlJi0,92
+terroir-0.10.dist-info/licenses/LICENSE,sha256=Q3EiZQRM2BfC5NZzh9K2bSOMezlg10iyEwGq8RX4_UY,1062
+terroir-0.10.dist-info/top_level.txt,sha256=IclEoRORMox4-iitiQJQcTv-Eq4-eLpxHZ9TIgQcOm0,8
+terroir/__init__.py,sha256=xyyemE0IFxJRq5Btsi5ClKRdX0G8wqmxOAivfWLJ2hY,60
+terroir/__pycache__/__init__.cpython-312.pyc,,
+terroir/__pycache__/app.cpython-312.pyc,,
+terroir/app.py,sha256=zc_jmwI8ClltQMR0f5KZNMmzw_Hl3oku3JHVRboy5tE,9539

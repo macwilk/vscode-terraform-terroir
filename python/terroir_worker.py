@@ -10,6 +10,13 @@ import sys
 _stdout = sys.stdout
 sys.stdout = sys.stderr
 
+# terroir and its dependencies are bundled so the extension works against any
+# Python 3.9+, including the system interpreter a GUI-launched editor sees.
+# Appended, not prepended, so a real installation still takes precedence.
+_VENDOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor")
+if os.path.isdir(_VENDOR):
+    sys.path.append(_VENDOR)
+
 
 def _write(obj):
     _stdout.write(json.dumps(obj, separators=(",", ":")))

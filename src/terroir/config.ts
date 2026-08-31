@@ -18,8 +18,9 @@ export function isRenderEnabled(): boolean {
   return config('terraform').get<boolean>('terroir.render.enable', true);
 }
 
-export function pythonPath(): string {
-  return config('terraform').get<string>('terroir.pythonPath', '') || 'python3';
+/** Empty means "discover one"; see resolveInterpreter. */
+export function configuredPythonPath(): string {
+  return config('terraform').get<string>('terroir.pythonPath', '').trim();
 }
 
 export function renderDebounceMs(): number {
