@@ -1,0 +1,99 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Terroir Jinja (injected)",
+  "scopeName": "terroir.jinja.injection",
+  "injectionSelector": "L:source.hcl.terraform, L:source.hcl",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#raw" },
+    { "include": "#statement" },
+    { "include": "#expression" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.block.jinja.terroir",
+      "begin": "\\{#-?",
+      "end": "-?#\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.comment.begin.jinja.terroir" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.comment.end.jinja.terroir" } }
+    },
+    "raw": {
+      "begin": "(\\{%-?)\\s*(raw)\\s*(-?%\\})",
+      "end": "(\\{%-?)\\s*(endraw)\\s*(-?%\\})",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.jinja.terroir" },
+        "2": { "name": "keyword.control.jinja.terroir" },
+        "3": { "name": "punctuation.definition.tag.end.jinja.terroir" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.jinja.terroir" },
+        "2": { "name": "keyword.control.jinja.terroir" },
+        "3": { "name": "punctuation.definition.tag.end.jinja.terroir" }
+      },
+      "contentName": "meta.embedded.raw.jinja.terroir"
+    },
+    "statement": {
+      "name": "meta.tag.statement.jinja.terroir",
+      "begin": "\\{%-?",
+      "end": "-?%\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.tag.begin.jinja.terroir" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.end.jinja.terroir" } },
+      "patterns": [{ "include": "#tag-keyword" }, { "include": "#code" }]
+    },
+    "expression": {
+      "name": "meta.tag.expression.jinja.terroir",
+      "begin": "\\{\\{-?",
+      "end": "-?\\}\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.template-expression.begin.jinja.terroir" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.template-expression.end.jinja.terroir" } },
+      "patterns": [{ "include": "#code" }]
+    },
+    "tag-keyword": {
+      "match": "(?<=\\{%-|\\{%)\\s*\\b(if|elif|else|endif|for|endfor|set|macro|endmacro|call|endcall|filter|endfilter|include|import|from|with|endwith|block|endblock|extends|do|break|continue)\\b",
+      "captures": { "1": { "name": "keyword.control.jinja.terroir" } }
+    },
+    "code": {
+      "patterns": [
+        { "include": "#string" },
+        { "include": "#number" },
+        { "include": "#operator" },
+        { "include": "#builtin" },
+        { "include": "#function-call" },
+        { "include": "#identifier" }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.jinja.terroir",
+          "begin": "'",
+          "end": "'",
+          "patterns": [{ "name": "constant.character.escape.jinja.terroir", "match": "\\\\." }]
+        },
+        {
+          "name": "string.quoted.double.jinja.terroir",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [{ "name": "constant.character.escape.jinja.terroir", "match": "\\\\." }]
+        }
+      ]
+    },
+    "number": { "name": "constant.numeric.jinja.terroir", "match": "\\b\\d+(\\.\\d+)?\\b" },
+    "operator": {
+      "patterns": [
+        { "name": "keyword.operator.logical.jinja.terroir", "match": "\\b(and|or|not|in|is)\\b" },
+        { "name": "constant.language.jinja.terroir", "match": "\\b(True|False|None)\\b" },
+        { "name": "keyword.operator.jinja.terroir", "match": "(~|\\||\\+|-|\\*|/|//|%|==|!=|<=|>=|<|>|=)" }
+      ]
+    },
+    "builtin": {
+      "name": "support.function.jinja.terroir",
+      "match": "\\b(is_enabled|range|dict|lipsum|cycler|joiner|namespace)\\b(?=\\s*\\()"
+    },
+    "function-call": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+      "captures": { "1": { "name": "entity.name.function.jinja.terroir" } }
+    },
+    "identifier": { "name": "variable.other.jinja.terroir", "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b" }
+  }
+}

@@ -38,6 +38,7 @@ import * as lsStatus from './status/language';
 import { TerraformCloudFeature } from './features/terraformCloud';
 import { setupMockServer, stopMockServer } from './test/e2e/specs/mocks/server';
 import { McpServerFeature } from './features/mcpServer';
+import { terroir } from './terroir';
 
 const id = 'terraform';
 const brand = `HashiCorp Terraform`;
@@ -107,6 +108,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.workspace.createFileSystemWatcher('**/*.tfquery.hcl'),
       ],
     },
+    middleware: terroir.activate(context, outputChannel),
     diagnosticCollectionName: 'HashiCorpTerraform',
     outputChannel: outputChannel,
     revealOutputChannelOn: RevealOutputChannelOn.Never,
@@ -209,6 +211,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   client = new LanguageClient(id, serverOptions, clientOptions);
+  terroir.attach(client);
   client.onDidChangeState((event) => {
     outputChannel.appendLine(`Client: ${State[event.oldState]} --> ${State[event.newState]}`);
     switch (event.newState) {
