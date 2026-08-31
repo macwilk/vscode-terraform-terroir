@@ -14,6 +14,7 @@ import {
 } from 'vscode-languageclient/node';
 import { isEnabled, isFormatGuardEnabled, isRenderEnabled, renderDebounceMs } from './config';
 import { hasJinja } from './detect';
+import { safeLineEdits } from './formatEdits';
 import { RenderStore } from './renderStore';
 import { findTerroirRoot } from './roots';
 
@@ -229,12 +230,18 @@ export class TerroirMiddleware {
         next(uri, mapped);
       },
 
-      provideDocumentFormattingEdits: (document, options, token, next) => {
-        return this.suppressFormatting(document) ? [] : next(document, options, token);
+      provideDocumentFormattingEdits: async (document, options, token, next) => {
+        if (!this.isTemplate(document)) {
+          return next(document, options, token);
+        }
+        return this.safeFormattingEdits(document, await next(document, options, token));
       },
 
-      provideDocumentRangeFormattingEdits: (document, range, options, token, next) => {
-        return this.suppressFormatting(document) ? [] : next(document, range, options, token);
+      provideDocumentRangeFormattingEdits: async (document, range, options, token, next) => {
+        if (!this.isTemplate(document)) {
+          return next(document, range, options, token);
+        }
+        return this.safeFormattingEdits(document, await next(document, range, options, token));
       },
 
       provideHover: (document, position, token, next) => {
@@ -259,11 +266,33 @@ export class TerroirMiddleware {
     };
   }
 
-  private suppressFormatting(document: vscode.TextDocument): boolean {
-    if (!isEnabled() || !isFormatGuardEnabled()) {
-      return false;
+  private isTemplate(document: vscode.TextDocument): boolean {
+    return isEnabled() && document.languageId === 'terraform' && hasJinja(document.getText());
+  }
+
+  /** Replay only the formatting edits that provably do not touch a template expression. */
+  private safeFormattingEdits(
+    document: vscode.TextDocument,
+    edits: vscode.TextEdit[] | null | undefined,
+  ): vscode.TextEdit[] {
+    const doc = this.store.get(document.uri);
+    if (!edits || !doc) {
+      return [];
     }
-    return document.languageId === 'terraform' && hasJinja(document.getText());
+    if (!isFormatGuardEnabled()) {
+      return edits;
+    }
+
+    const lineEdits = edits
+      .filter((edit) => edit.range.start.character === 0 && edit.range.end.character === 0)
+      .map((edit) => ({ startLine: edit.range.start.line, endLine: edit.range.end.line, newText: edit.newText }));
+
+    const safe = safeLineEdits(document.getText(), doc.rendered, doc.map, lineEdits);
+    this.out.appendLine(
+      `[terroir] formatting ${document.uri.fsPath}: applied ${safe.length} of ${edits.length} edits ` +
+        `(the rest overlap template expressions)`,
+    );
+    return safe.map((edit) => new vscode.TextEdit(new vscode.Range(edit.startLine, 0, edit.endLine, 0), edit.newText));
   }
 
   /** Undefined means the cursor is inside a Jinja span; the server cannot answer. */

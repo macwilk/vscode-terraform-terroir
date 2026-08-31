@@ -10,7 +10,10 @@ below the first Jinja tag.
 
 - Highlights Jinja inside HCL, including `{{ }}` in a string that itself
   contains double quotes.
-- Suppresses `terraform fmt` on templated files, which cannot parse them.
+- Formats templated files with `terraform fmt`, replaying only the edits whose
+  span is byte-identical in the template and the render. That is what proves no
+  Jinja tag or interpolated value sits inside the edit, so formatting can never
+  overwrite a template expression with the value it happened to render to.
 - Renders each file with real terroir and hands the result to terraform-ls, so
   diagnostics, hover and completion see valid HCL. Diagnostics are mapped back
   to the line you are looking at.
@@ -36,7 +39,7 @@ extension behaves exactly like upstream and says so.
 | `terraform.terroir.environment` | `staging` | `CAPITALRX_ENVIRONMENT` to render for |
 | `terraform.terroir.pythonPath` | discovered | interpreter to render with; any Python 3.9+ |
 | `terraform.terroir.renderDebounceMs` | `350` | delay before re-rendering while typing |
-| `terraform.terroir.formatGuard.enable` | `true` | suppress `terraform fmt` on templates |
+| `terraform.terroir.formatGuard.enable` | `true` | only replay `terraform fmt` edits that cannot touch Jinja |
 
 ## Commands
 

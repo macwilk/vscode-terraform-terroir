@@ -483,7 +483,7 @@
             "scope": "window",
             "type": "boolean",
             "default": true,
-            "description": "Suppress terraform fmt on .tf files containing Jinja2 template syntax. terraform fmt cannot parse templates and will corrupt or refuse them."
+            "description": "Apply only the terraform fmt edits that provably do not touch a Jinja2 expression. Turning this off replays every edit, which will overwrite template expressions with the values they rendered to."
           }
         }
       },
