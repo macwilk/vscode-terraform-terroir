@@ -6,11 +6,18 @@ set -euo pipefail
 
 git fetch upstream main --depth=1 >/dev/null 2>&1 || true
 
+OURS=(
+  ':!src/terroir'
+  ':!python'
+  ':!syntaxes-custom'
+  ':!terroir-tools'
+  ':!TERROIR.md'
+  ':!.github/workflows/terroir-release.yml'
+)
+
 echo "== files upstream owns that we touched =="
-git diff --stat upstream/main -- . \
-  ':!src/terroir' ':!python' ':!syntaxes-custom' ':!terroir-tools' ':!TERROIR.md'
+git diff --stat upstream/main -- . "${OURS[@]}"
 
 echo
 echo "== the diff itself =="
-git diff upstream/main -- . \
-  ':!src/terroir' ':!python' ':!syntaxes-custom' ':!terroir-tools' ':!TERROIR.md'
+git diff upstream/main -- . "${OURS[@]}"
