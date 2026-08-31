@@ -8,7 +8,9 @@ import {
   completionContextAtCharacter,
   describeFlag,
   findFlagKeyOffset,
+  findFlagReferences,
   flagNameAtCharacter,
+  flagProblem,
   offsetToPosition,
   parseFlagSettings,
   resolveFlag,
@@ -151,5 +153,42 @@ suite('flags', () => {
     test('does not trigger outside an is_enabled( call', () => {
       assert.strictEqual(completionContextAtCharacter('a = "b', 6), undefined);
     });
+  });
+});
+
+suite('flag linting', () => {
+  test('finds every is_enabled call site with its range', () => {
+    const text = ['{% if is_enabled("a.b") %}', 'x = 1', '{% elif is_enabled("c.d") %}'].join('\n');
+    const refs = findFlagReferences(text);
+    assert.deepStrictEqual(
+      refs.map((r) => [r.name, r.line]),
+      [
+        ['a.b', 0],
+        ['c.d', 2],
+      ],
+    );
+    assert.strictEqual(text.split('\n')[0].slice(refs[0].start, refs[0].end), '"a.b"');
+  });
+
+  test('reports a flag that is absent from settings.json', () => {
+    const problem = flagProblem(resolveFlag({}, 'nope'), 'nope');
+    assert.ok(problem);
+    assert.strictEqual(problem.severe, false);
+    assert.ok(/not defined/.test(problem.message));
+  });
+
+  test('reports a boolean flag as an error, because terroir would crash', () => {
+    const problem = flagProblem(resolveFlag({ x: true }, 'x'), 'x');
+    assert.ok(problem);
+    assert.strictEqual(problem.severe, true);
+    assert.ok(/AttributeError/.test(problem.message));
+  });
+
+  test('an empty list is deliberate and not reported', () => {
+    assert.strictEqual(flagProblem(resolveFlag({ x: [] }, 'x'), 'x'), undefined);
+  });
+
+  test('a normal flag is not reported', () => {
+    assert.strictEqual(flagProblem(resolveFlag({ x: ['staging'] }, 'x'), 'x'), undefined);
   });
 });

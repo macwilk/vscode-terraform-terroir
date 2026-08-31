@@ -122,6 +122,51 @@ export function flagNameAtCharacter(lineText: string, character: number): FlagNa
 }
 
 /** Whether `character` sits inside an open `is_enabled("` argument that hasn't been closed yet. */
+export interface FlagReference {
+  name: string;
+  line: number;
+  /** Column of the opening quote; the range covers the quoted name. */
+  start: number;
+  end: number;
+}
+
+/** Every `is_enabled("...")` call site in a template. */
+export function findFlagReferences(text: string): FlagReference[] {
+  const found: FlagReference[] = [];
+  for (const [line, lineText] of text.split('\n').entries()) {
+    const re = /is_enabled\(\s*"([^"]*)"/g;
+    for (let match = re.exec(lineText); match; match = re.exec(lineText)) {
+      const start = match.index + match[0].indexOf('"');
+      found.push({ name: match[1], line, start, end: start + match[1].length + 2 });
+    }
+  }
+  return found;
+}
+
+/**
+ * Problems worth reporting at a call site. An empty list is deliberately NOT one: turning a flag
+ * off everywhere by emptying its list is how the setting is meant to be used, and the repo does
+ * it on purpose.
+ */
+export function flagProblem(
+  resolution: FlagResolution,
+  name: string,
+): { message: string; severe: boolean } | undefined {
+  if (resolution.kind === 'missing') {
+    return {
+      message: `"${name}" is not defined in .terroir/settings.json, so is_enabled() returns false in every environment.`,
+      severe: false,
+    };
+  }
+  if (resolution.kind === 'boolean') {
+    return {
+      message: `"${name}" is a boolean. terroir's is_enabled() calls .append() on the value, so rendering raises AttributeError.`,
+      severe: true,
+    };
+  }
+  return undefined;
+}
+
 export function completionContextAtCharacter(lineText: string, character: number): CompletionContext | undefined {
   const match = /is_enabled\(\s*"([^"]*)$/.exec(lineText.slice(0, character));
   if (!match) {
@@ -193,7 +238,10 @@ class FlagSettingsCache implements vscode.Disposable {
   private flags: Record<string, FlagValue> | undefined;
   private watcher: vscode.FileSystemWatcher | undefined;
 
-  constructor(private readonly settingsPath: string) {}
+  constructor(
+    private readonly settingsPath: string,
+    private readonly onInvalidate?: () => void,
+  ) {}
 
   private ensureWatcher(): void {
     if (this.watcher) {
@@ -203,6 +251,7 @@ class FlagSettingsCache implements vscode.Disposable {
     const invalidate = (): void => {
       this.text = undefined;
       this.flags = undefined;
+      this.onInvalidate?.();
     };
     watcher.onDidChange(invalidate);
     watcher.onDidCreate(invalidate);
@@ -247,7 +296,9 @@ export function registerFlagIntelligence(context: vscode.ExtensionContext): vsco
   const cacheFor = (settingsPath: string): FlagSettingsCache => {
     let cache = caches.get(settingsPath);
     if (!cache) {
-      cache = new FlagSettingsCache(settingsPath);
+      cache = new FlagSettingsCache(settingsPath, () => {
+        relint();
+      });
       caches.set(settingsPath, cache);
     }
     return cache;
@@ -261,6 +312,40 @@ export function registerFlagIntelligence(context: vscode.ExtensionContext): vsco
   };
 
   const selector: vscode.DocumentSelector = { language: 'terraform', scheme: 'file' };
+
+  // Its own collection so a flag problem is never mistaken for a terraform one, and so it can be
+  // cleared independently when settings.json changes.
+  const problems = vscodeApi.languages.createDiagnosticCollection('terroir-flags');
+
+  const lintFlags = (document: vscode.TextDocument): void => {
+    const settingsPath = settingsPathFor(document);
+    if (!settingsPath || document.languageId !== 'terraform') {
+      return;
+    }
+    const flags = cacheFor(settingsPath).getFlags();
+    const found: vscode.Diagnostic[] = [];
+    for (const reference of findFlagReferences(document.getText())) {
+      const problem = flagProblem(resolveFlag(flags, reference.name), reference.name);
+      if (!problem) {
+        continue;
+      }
+      const diagnostic = new vscodeApi.Diagnostic(
+        new vscodeApi.Range(reference.line, reference.start, reference.line, reference.end),
+        problem.message,
+        problem.severe ? vscodeApi.DiagnosticSeverity.Error : vscodeApi.DiagnosticSeverity.Warning,
+      );
+      diagnostic.source = 'terroir';
+      found.push(diagnostic);
+    }
+    problems.set(document.uri, found);
+  };
+
+  const relint = (): void => {
+    for (const document of vscodeApi.workspace.textDocuments) {
+      lintFlags(document);
+    }
+  };
+  relint();
 
   const definitionProvider = vscodeApi.languages.registerDefinitionProvider(selector, {
     provideDefinition: (document, position) => {
@@ -329,12 +414,29 @@ export function registerFlagIntelligence(context: vscode.ExtensionContext): vsco
     '"',
   );
 
-  return vscodeApi.Disposable.from(definitionProvider, hoverProvider, completionProvider, {
-    dispose: () => {
-      for (const cache of caches.values()) {
-        cache.dispose();
-      }
-      caches.clear();
-    },
+  const opened = vscodeApi.workspace.onDidOpenTextDocument(lintFlags);
+  const changed = vscodeApi.workspace.onDidChangeTextDocument((event) => {
+    lintFlags(event.document);
   });
+  const closed = vscodeApi.workspace.onDidCloseTextDocument((document) => {
+    problems.delete(document.uri);
+  });
+
+  return vscodeApi.Disposable.from(
+    problems,
+    opened,
+    changed,
+    closed,
+    definitionProvider,
+    hoverProvider,
+    completionProvider,
+    {
+      dispose: () => {
+        for (const cache of caches.values()) {
+          cache.dispose();
+        }
+        caches.clear();
+      },
+    },
+  );
 }

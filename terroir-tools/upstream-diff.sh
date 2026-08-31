@@ -13,6 +13,7 @@ OURS=(
   ':!terroir-tools'
   ':!TERROIR.md'
   ':!.github/workflows/terroir-release.yml'
+  ':!src/test/integration/terroir'
 )
 
 echo "== files upstream owns that we touched =="

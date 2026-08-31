@@ -24,6 +24,11 @@ below the first Jinja tag.
   diagnostics, hover and completion see valid HCL. Diagnostics are mapped back
   to the line you are looking at.
 
+- Flags an `is_enabled("x")` whose `x` is absent from `.terroir/settings.json`,
+  since it silently returns false in every environment. A boolean flag value is
+  an error rather than a warning: terroir's own plugin calls `.append()` on the
+  value, so rendering raises `AttributeError`. An empty list is not reported --
+  emptying a list is how a flag is deliberately turned off everywhere.
 - Reports a template that fails to render as a warning on the offending line,
   rather than leaving diagnostics silently stale.
 - Translates the language server's semantic tokens back to template
