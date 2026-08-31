@@ -174,14 +174,14 @@ suite('flag linting', () => {
     const problem = flagProblem(resolveFlag({}, 'nope'), 'nope');
     assert.ok(problem);
     assert.strictEqual(problem.severe, false);
-    assert.ok(/not defined/.test(problem.message));
+    assert.ok(problem.message.includes('not defined'), problem.message);
   });
 
   test('reports a boolean flag as an error, because terroir would crash', () => {
     const problem = flagProblem(resolveFlag({ x: true }, 'x'), 'x');
     assert.ok(problem);
     assert.strictEqual(problem.severe, true);
-    assert.ok(/AttributeError/.test(problem.message));
+    assert.ok(problem.message.includes('AttributeError'), problem.message);
   });
 
   test('an empty list is deliberate and not reported', () => {
