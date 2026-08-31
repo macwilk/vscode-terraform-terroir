@@ -25,7 +25,13 @@ def _write(obj):
 
 
 def _error(exc):
-    return {"type": type(exc).__name__, "message": str(exc)}
+    error = {"type": type(exc).__name__, "message": str(exc)}
+    # jinja2 puts the template line on syntax errors; without it the caller can only point at
+    # the top of the file.
+    lineno = getattr(exc, "lineno", None)
+    if isinstance(lineno, int):
+        error["lineno"] = lineno
+    return error
 
 
 def render_dir(req):

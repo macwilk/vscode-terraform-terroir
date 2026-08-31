@@ -32,6 +32,8 @@ export interface RenderedFile {
 export interface RenderError {
   type: string;
   message: string;
+  /** 1-based template line, when the failure carries one. */
+  lineno?: number;
 }
 
 export interface RenderDirResult {

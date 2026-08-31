@@ -1,0 +1,4 @@
+{
+  "fixture.enabled": ["staging", "prod"],
+  "fixture.disabled": []
+}

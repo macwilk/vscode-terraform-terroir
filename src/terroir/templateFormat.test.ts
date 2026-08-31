@@ -52,7 +52,7 @@ const miniFmt: Formatter = (hcl) => {
 const jinja = (text: string): string[] => text.match(/\{#[\s\S]*?#\}|\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g) ?? [];
 
 suite('templateFormat', () => {
-  test('indents a tag that sits alone on its line, and the branch it guards', () => {
+  test('indents a tag that sits alone on its line, and the branch it guards', async () => {
     const source = [
       'locals {',
       '  quicksight_cli_admin_role_names = toset(1)',
@@ -63,7 +63,7 @@ suite('templateFormat', () => {
       '',
     ].join('\n');
     assert.strictEqual(
-      formatTemplate(source, miniFmt),
+      await formatTemplate(source, miniFmt),
       [
         'locals {',
         '  quicksight_cli_admin_role_names = toset(1)',
@@ -76,7 +76,7 @@ suite('templateFormat', () => {
     );
   });
 
-  test('keeps an interpolation that holds double quotes inside a double-quoted string', () => {
+  test('keeps an interpolation that holds double quotes inside a double-quoted string', async () => {
     const source = [
       'variable "artifacts" {',
       'default = "{{ os.environ.get("CAPITALRX_CONVEYOR_ARTIFACTS_BUCKET", "x") -}}"',
@@ -84,7 +84,7 @@ suite('templateFormat', () => {
       '',
     ].join('\n');
     assert.strictEqual(
-      formatTemplate(source, miniFmt),
+      await formatTemplate(source, miniFmt),
       [
         'variable "artifacts" {',
         '  default = "{{ os.environ.get("CAPITALRX_CONVEYOR_ARTIFACTS_BUCKET", "x") -}}"',
@@ -94,15 +94,15 @@ suite('templateFormat', () => {
     );
   });
 
-  test('keeps an interpolation used as part of a bare identifier or label', () => {
+  test('keeps an interpolation used as part of a bare identifier or label', async () => {
     const source = ['variable "{{prefix}}_node_group_name" {', 'default = 1', '}', ''].join('\n');
     assert.strictEqual(
-      formatTemplate(source, miniFmt),
+      await formatTemplate(source, miniFmt),
       ['variable "{{prefix}}_node_group_name" {', '  default = 1', '}', ''].join('\n'),
     );
   });
 
-  test('leaves a raw body literal, braces and all', () => {
+  test('leaves a raw body literal, braces and all', async () => {
     const source = [
       'resource "r" "n" {',
       '{% raw %}',
@@ -114,7 +114,7 @@ suite('templateFormat', () => {
     // `{####}` reads as a Jinja comment to anything that scans the body, which is exactly what
     // `{% raw %}` is there to prevent; it must come back on its own line, unread and unmoved.
     assert.strictEqual(
-      formatTemplate(source, miniFmt),
+      await formatTemplate(source, miniFmt),
       [
         'resource "r" "n" {',
         '  {% raw %}',
@@ -126,9 +126,9 @@ suite('templateFormat', () => {
     );
   });
 
-  test('reproduces whitespace-control markers byte for byte', () => {
+  test('reproduces whitespace-control markers byte for byte', async () => {
     const source = ['locals {', '{%- if a -%}', 'x = "{{- v -}}"', '{%- endif -%}', '}', ''].join('\n');
-    const result = formatTemplate(source, miniFmt);
+    const result = await formatTemplate(source, miniFmt);
     assert.ok(result);
     assert.deepStrictEqual(jinja(result), ['{%- if a -%}', '{{- v -}}', '{%- endif -%}']);
     assert.strictEqual(
@@ -137,7 +137,7 @@ suite('templateFormat', () => {
     );
   });
 
-  test('formats both branches of an if/else at once', () => {
+  test('formats both branches of an if/else at once', async () => {
     const source = [
       'resource "r" "n" {',
       '{% if a %}',
@@ -149,7 +149,7 @@ suite('templateFormat', () => {
       '',
     ].join('\n');
     assert.strictEqual(
-      formatTemplate(source, miniFmt),
+      await formatTemplate(source, miniFmt),
       [
         'resource "r" "n" {',
         '  {% if a %}',
@@ -163,7 +163,7 @@ suite('templateFormat', () => {
     );
   });
 
-  test('formats each branch alone when they define one attribute twice', () => {
+  test('formats each branch alone when they define one attribute twice', async () => {
     // Both branches live at once is "Attribute redefined" to fmt, so each is formatted with the
     // others suppressed and the results are stitched back together.
     const source = [
@@ -176,7 +176,7 @@ suite('templateFormat', () => {
       '}',
       '',
     ].join('\n');
-    const out = formatTemplate(source, miniFmt);
+    const out = await formatTemplate(source, miniFmt);
     assert.ok(out, 'the whole-file pass declines this; the per-branch pass must not');
     const bodies = out.split('\n').filter((l) => l.includes('default'));
     assert.strictEqual(bodies.length, 2, 'both branches survive');
@@ -187,10 +187,10 @@ suite('templateFormat', () => {
     assert.strictEqual((out.match(/\{%/g) ?? []).length, 3, 'all three tags intact');
   });
 
-  test('indents block bodies one level deeper when asked', () => {
+  test('indents block bodies one level deeper when asked', async () => {
     const source = ['variable "v" {', '{% if a %}', 'default = 1', '{% endif %}', '}', ''].join('\n');
-    const flat = formatTemplate(source, miniFmt);
-    const nested = formatTemplate(source, miniFmt, { indentBlocks: true });
+    const flat = await formatTemplate(source, miniFmt);
+    const nested = await formatTemplate(source, miniFmt, { indentBlocks: true });
     assert.ok(flat && nested);
     const body = (text: string): string => text.split('\n').find((l) => l.includes('default')) ?? '';
     assert.strictEqual(body(nested).length - body(flat).length, 2, 'body should gain exactly one level');
@@ -198,48 +198,45 @@ suite('templateFormat', () => {
     assert.strictEqual(tag(nested), tag(flat), 'the tag line itself should not move');
   });
 
-  test('is idempotent', () => {
+  test('is idempotent', async () => {
     const source = ['locals {', '{% if a %}', 'x = 1', '{% endif %}', '{# note #}', 'y = "{{ v }}"', '}', ''].join(
       '\n',
     );
-    const once = formatTemplate(source, miniFmt);
+    const once = await formatTemplate(source, miniFmt);
     assert.ok(once);
-    assert.strictEqual(formatTemplate(once, miniFmt), once);
+    assert.strictEqual(await formatTemplate(once, miniFmt), once);
   });
 
-  test('declines when the formatter rejects the masked text', () => {
-    assert.strictEqual(formatTemplate('locals {\n{% if a %}\nx = 1\n', miniFmt), undefined);
+  test('declines when the formatter rejects the masked text', async () => {
+    assert.strictEqual(await formatTemplate('locals {\n{% if a %}\nx = 1\n', miniFmt), undefined);
   });
 
-  test('declines an unterminated construct without calling the formatter', () => {
+  test('declines an unterminated construct without calling the formatter', async () => {
     let called = false;
     const spy: Formatter = (hcl) => {
       called = true;
       return hcl;
     };
-    assert.strictEqual(formatTemplate('x = "{{ oops"\n', spy), undefined);
+    assert.strictEqual(await formatTemplate('x = "{{ oops"\n', spy), undefined);
     assert.strictEqual(called, false);
   });
 
-  test('declines when the formatter changes anything but whitespace', () => {
+  test('declines when the formatter changes anything but whitespace', async () => {
     // Real `terraform fmt` quotes a bare block label, which would wrap the Jinja in quotes it
     // never had. Nothing outside a Jinja span may come back different.
     const quoteLabels: Formatter = (hcl) => hcl.replace(/^variable (\S+) \{/m, 'variable "$1" {');
-    assert.strictEqual(formatTemplate('variable {{ name }} {\n  default = 1\n}\n', quoteLabels), undefined);
+    assert.strictEqual(await formatTemplate('variable {{ name }} {\n  default = 1\n}\n', quoteLabels), undefined);
   });
 
-  test('declines when a placeholder does not come back exactly once', () => {
+  test('declines when a placeholder does not come back exactly once', async () => {
     assert.strictEqual(
-      formatTemplate('{% if a %}\nx = 1\n{% endif %}\n', (hcl) => hcl.split('\n')[0]),
+      await formatTemplate('{% if a %}\nx = 1\n{% endif %}\n', (hcl) => hcl.split('\n')[0]),
       undefined,
     );
-    assert.strictEqual(
-      formatTemplate('{% if a %}\nx = 1\n{% endif %}\n', (hcl) => hcl + hcl),
-      undefined,
-    );
+    assert.strictEqual(await formatTemplate('{% if a %}\nx = 1\n{% endif %}\n', (hcl) => hcl + hcl), undefined);
   });
 
-  test('hands a template with no Jinja straight to the formatter', () => {
-    assert.strictEqual(formatTemplate('locals {\nx = 1\n}\n', miniFmt), 'locals {\n  x = 1\n}\n');
+  test('hands a template with no Jinja straight to the formatter', async () => {
+    assert.strictEqual(await formatTemplate('locals {\nx = 1\n}\n', miniFmt), 'locals {\n  x = 1\n}\n');
   });
 });

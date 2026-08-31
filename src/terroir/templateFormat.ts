@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: MPL-2.0
  */
 
-/** Runs `terraform fmt` over HCL text; returns undefined if fmt rejects it. */
-export type Formatter = (hcl: string) => string | undefined;
+/** Runs `terraform fmt` over HCL text; resolves undefined if fmt rejects it. */
+export type Formatter = (hcl: string) => string | undefined | Promise<string | undefined>;
 
 interface Span {
   start: number;
@@ -109,12 +109,12 @@ function conserves(source: string, result: string, spans: Span[]): boolean {
 }
 
 /** One whole-file mask/format/restore pass. `masking` may suppress lines before fmt sees them. */
-function formatPass(
+async function formatPass(
   source: string,
   fmt: Formatter,
   masking?: (lines: string[]) => string[],
   unmasking?: (lines: string[]) => string[],
-): string | undefined {
+): Promise<string | undefined> {
   const spans = scan(source);
   if (!spans) {
     return undefined;
@@ -142,7 +142,7 @@ function formatPass(
     masked = masking(masked.split('\n')).join('\n');
   }
 
-  const raw = fmt(masked);
+  const raw = await fmt(masked);
   if (raw === undefined) {
     return undefined;
   }
@@ -268,6 +268,12 @@ export interface FormatOptions {
   /** Indent the body of each Jinja block one level deeper than its tags. */
   indentBlocks?: boolean;
   indentUnit?: string;
+  /**
+   * Give up after this long. Formatting each branch separately costs one `terraform fmt` per
+   * branch, and a file with large branch bodies can run to tens of seconds -- long enough that
+   * finishing is worse than declining.
+   */
+  budgetMs?: number;
 }
 
 /**
@@ -289,8 +295,13 @@ function indentBlocks(text: string, depthOf: number[], shiftable: boolean[], uni
  * Format a Jinja terraform template. Returns undefined when the template cannot be formatted
  * safely, in which case the caller leaves the file alone.
  */
-export function formatTemplate(source: string, fmt: Formatter, options: FormatOptions = {}): string | undefined {
+export async function formatTemplate(
+  source: string,
+  fmt: Formatter,
+  options: FormatOptions = {},
+): Promise<string | undefined> {
   const unit = options.indentUnit ?? '  ';
+  const deadline = Date.now() + (options.budgetMs ?? 3000);
   const structure = branches(source);
 
   const spansOf = scan(source);
@@ -306,7 +317,7 @@ export function formatTemplate(source: string, fmt: Formatter, options: FormatOp
 
   // Fast path: every branch live at once. Only valid when no two branches define the same
   // attribute, which `terraform fmt` rejects outright as "Attribute redefined".
-  const whole = formatPass(source, fmt);
+  const whole = await formatPass(source, fmt);
   if (whole !== undefined) {
     return finish(whole);
   }
@@ -320,7 +331,10 @@ export function formatTemplate(source: string, fmt: Formatter, options: FormatOp
   const passes = new Map<number | undefined, string[]>();
   for (const live of [undefined, ...structure.groups.keys()]) {
     const hidden = (i: number): boolean => structure.branchOf[i] !== undefined && structure.branchOf[i] !== live;
-    const out = formatPass(
+    if (Date.now() > deadline) {
+      return undefined;
+    }
+    const out = await formatPass(
       source,
       fmt,
       (lines) => lines.map((line, i) => (hidden(i) ? suppress(line) : line)),

@@ -24,8 +24,19 @@ below the first Jinja tag.
   diagnostics, hover and completion see valid HCL. Diagnostics are mapped back
   to the line you are looking at.
 
+- Reports a template that fails to render as a warning on the offending line,
+  rather than leaving diagnostics silently stale.
+- Translates the language server's semantic tokens back to template
+  coordinates, so server-side highlighting is not offset by the lines the
+  render dropped.
+
 Nothing is written to disk. terroir's own `.tfbak` write-and-restore path is
 never invoked.
+
+Both `python3` and `terraform` are located by probing a short list of common
+paths, not by trusting `PATH` alone: an editor launched from a launcher rather
+than a shell does not inherit a login `PATH`, so a pyenv or Homebrew binary is
+invisible to a bare name.
 
 ## Requirements
 
@@ -61,4 +72,9 @@ Everything lives in `src/terroir/`, `python/`, `syntaxes-custom/` and
 `terroir-tools/` — paths upstream does not use. Upstream files carry three
 added lines in `src/extension.ts` and three array appends in `package.json`.
 `terroir-tools/upstream-diff.sh` prints exactly that drift; keep it small.
-`terroir-tools/vendor-python.sh` regenerates `python/vendor`.
+`terroir-tools/vendor-python.sh` regenerates `python/vendor`, and
+`terroir-tools/test.sh` runs the unit tests. The terroir-specific integration
+tests live in `src/test/integration/terroir/` and run with
+`npx vscode-test --label "Integration Tests - terroir"`.
+
+Untested: multi-root workspaces, and Windows path handling.

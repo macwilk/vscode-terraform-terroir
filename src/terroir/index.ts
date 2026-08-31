@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { LanguageClient, Middleware } from 'vscode-languageclient/node';
 import { environmentName, isEnabled } from './config';
 import { hasJinja } from './detect';
+import { registerFlagIntelligence } from './flags';
 import { TerroirMiddleware } from './middleware';
 import { RenderStore } from './renderStore';
 import { clearRootCache, findTerroirRoot } from './roots';
@@ -40,6 +41,7 @@ class Terroir {
       pool,
       store,
       status,
+      registerFlagIntelligence(context),
       vscode.workspace.registerTextDocumentContentProvider(RENDERED_SCHEME, {
         provideTextDocumentContent: (uri) => this.renderedContent(uri),
       }),

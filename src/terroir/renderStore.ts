@@ -25,6 +25,8 @@ export interface RenderedDoc {
 export class RenderStore implements vscode.Disposable {
   private readonly docs = new Map<string, RenderedDoc>();
   private readonly inflight = new Map<string, Promise<void>>();
+  /** Its own collection, so a render failure never masquerades as a terraform diagnostic. */
+  private readonly problems = vscode.languages.createDiagnosticCollection('terroir');
 
   constructor(
     private readonly pool: WorkerPool,
@@ -93,8 +95,20 @@ export class RenderStore implements vscode.Disposable {
       });
     }
 
+    for (const name of Object.keys(result.files)) {
+      this.problems.delete(vscode.Uri.file(path.join(dir, name)));
+    }
     for (const [name, error] of Object.entries(result.errors)) {
-      this.out.appendLine(`[terroir] ${path.join(dir, name)}: ${error.type}: ${error.message}`);
+      const uri = vscode.Uri.file(path.join(dir, name));
+      const line = Math.max(0, (error.lineno ?? 1) - 1);
+      const diagnostic = new vscode.Diagnostic(
+        new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
+        `terroir could not render this template for "${env}": ${error.type}: ${error.message}`,
+        vscode.DiagnosticSeverity.Warning,
+      );
+      diagnostic.source = 'terroir';
+      this.problems.set(uri, [diagnostic]);
+      this.out.appendLine(`[terroir] ${uri.fsPath}: ${error.type}: ${error.message}`);
     }
   }
 
@@ -108,6 +122,7 @@ export class RenderStore implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.problems.dispose();
     this.docs.clear();
     this.inflight.clear();
   }

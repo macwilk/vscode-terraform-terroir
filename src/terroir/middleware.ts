@@ -15,9 +15,10 @@ import {
 import { indentJinjaBlocks, isEnabled, isFormatGuardEnabled, isRenderEnabled, renderDebounceMs } from './config';
 import { hasJinja } from './detect';
 import { safeLineEdits } from './formatEdits';
-import { runTerraformFmt, terraformAvailable } from './hclFormatter';
+import { resolvedTerraform, runTerraformFmt, terraformAvailable } from './hclFormatter';
 import { formatTemplate } from './templateFormat';
 import { RenderStore } from './renderStore';
+import { translateSemanticTokens } from './semanticTokens';
 import { findTerroirRoot } from './roots';
 
 const NUDGE_DELAY_MS = 250;
@@ -236,7 +237,7 @@ export class TerroirMiddleware {
         if (!this.isTemplate(document)) {
           return next(document, options, token);
         }
-        const whole = this.formatWholeTemplate(document);
+        const whole = await this.formatWholeTemplate(document);
         if (whole) {
           return whole;
         }
@@ -248,6 +249,18 @@ export class TerroirMiddleware {
           return next(document, range, options, token);
         }
         return this.safeFormattingEdits(document, await next(document, range, options, token));
+      },
+
+      provideDocumentSemanticTokens: async (document, token, next) => {
+        const result = await next(document, token);
+        const doc = this.store.get(document.uri);
+        if (!result || !doc) {
+          return result;
+        }
+        return new vscode.SemanticTokens(
+          translateSemanticTokens(result.data, (pos) => doc.map.toSource(pos)),
+          result.resultId,
+        );
       },
 
       provideHover: (document, position, token, next) => {
@@ -281,16 +294,21 @@ export class TerroirMiddleware {
    * environment does not take are formatted too. Falls back to the render-based path when the
    * terraform binary is missing or the template cannot be masked into parseable HCL.
    */
-  private formatWholeTemplate(document: vscode.TextDocument): vscode.TextEdit[] | undefined {
+  private async formatWholeTemplate(document: vscode.TextDocument): Promise<vscode.TextEdit[] | undefined> {
     if (!terraformAvailable()) {
       return undefined;
     }
     const source = document.getText();
-    const formatted = formatTemplate(source, runTerraformFmt, { indentBlocks: indentJinjaBlocks() });
+    const formatted = await formatTemplate(source, runTerraformFmt, { indentBlocks: indentJinjaBlocks() });
     if (formatted === undefined) {
-      this.out.appendLine(`[terroir] ${document.uri.fsPath}: template could not be formatted directly`);
+      this.out.appendLine(
+        terraformAvailable()
+          ? `[terroir] ${document.uri.fsPath}: template could not be formatted directly; falling back`
+          : `[terroir] no terraform binary found; set terraform.terroir.terraformPath to format templates`,
+      );
       return undefined;
     }
+    this.out.appendLine(`[terroir] formatted ${document.uri.fsPath} with ${resolvedTerraform() ?? 'terraform'}`);
     if (formatted === source) {
       return [];
     }

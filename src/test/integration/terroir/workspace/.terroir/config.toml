@@ -1,0 +1,3 @@
+[plugins]
+[plugins.main]
+plugin = "terroir_plugin.py"
