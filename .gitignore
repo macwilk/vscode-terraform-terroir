@@ -13,3 +13,4 @@ dist
 out
 syntaxes
 __pycache__
+src/test/integration/terroir/workspace/.vscode

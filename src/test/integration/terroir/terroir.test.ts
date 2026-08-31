@@ -148,6 +148,27 @@ suite('terroir', function suite() {
     assert.strictEqual(flagged[0].severity, vscode.DiagnosticSeverity.Warning);
   });
 
+  test('changing the environment re-renders what the server was given', async () => {
+    const rendered = variablesUri.with({ scheme: 'terroir-rendered' });
+    const config = vscode.workspace.getConfiguration('terraform');
+    await open(variablesUri);
+    await sleep(2000);
+
+    const staging = (await vscode.workspace.openTextDocument(rendered)).getText();
+    assert.ok(staging.includes('us-east-1'), `expected the enabled branch under staging:\n${staging}`);
+
+    try {
+      await config.update('terroir.environment', 'qa', vscode.ConfigurationTarget.Workspace);
+      await sleep(4000);
+      const doc = await vscode.workspace.openTextDocument(rendered);
+      const qa = doc.getText();
+      assert.ok(qa.includes('us-west-2'), `flag is off for qa, so the else branch should render; got:\n${qa}`);
+    } finally {
+      await config.update('terroir.environment', undefined, vscode.ConfigurationTarget.Workspace);
+      await sleep(2000);
+    }
+  });
+
   test('hover answers on a line the render kept', async () => {
     await open(mainUri);
     const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(

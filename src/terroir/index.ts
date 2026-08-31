@@ -23,6 +23,8 @@ class Terroir {
   private store: RenderStore | undefined;
   private pool: WorkerPool | undefined;
   private status: vscode.StatusBarItem | undefined;
+  /** Without this the editor serves a rendered preview from cache forever, even after a re-render. */
+  private readonly renderedChanged = new vscode.EventEmitter<vscode.Uri>();
 
   activate(context: vscode.ExtensionContext, out: vscode.OutputChannel): Middleware {
     const pool = new WorkerPool(context.extensionPath, out);
@@ -42,7 +44,9 @@ class Terroir {
       store,
       status,
       registerFlagIntelligence(context),
+      this.renderedChanged,
       vscode.workspace.registerTextDocumentContentProvider(RENDERED_SCHEME, {
+        onDidChange: this.renderedChanged.event,
         provideTextDocumentContent: (uri) => this.renderedContent(uri),
       }),
       vscode.commands.registerCommand('terraform.terroir.selectEnvironment', () => this.selectEnvironment()),
@@ -58,6 +62,13 @@ class Terroir {
         if (event.affectsConfiguration('terraform.terroir')) {
           clearRootCache();
           store.invalidateForEnvChange();
+          void middleware.refreshAll().then(() => {
+            for (const document of vscode.workspace.textDocuments) {
+              if (document.uri.scheme === RENDERED_SCHEME) {
+                this.renderedChanged.fire(document.uri);
+              }
+            }
+          });
           this.updateStatus();
         }
       }),

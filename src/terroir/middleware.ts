@@ -137,6 +137,53 @@ export class TerroirMiddleware {
     });
   }
 
+  /**
+   * Siblings are pushed so terraform-ls stops reading templates off disk, but nothing else ever
+   * takes them back. Left alone, every directory visited in a session accumulates permanently.
+   */
+  private async releaseDirectory(dir: string, closing?: vscode.Uri): Promise<void> {
+    const stillOpen = vscode.workspace.textDocuments.some(
+      (d) =>
+        d.uri.scheme === 'file' &&
+        d.uri.toString() !== closing?.toString() &&
+        path.dirname(d.uri.fsPath) === dir &&
+        d.languageId === 'terraform',
+    );
+    if (stillOpen) {
+      return;
+    }
+    for (const key of [...this.pushed]) {
+      if (path.dirname(vscode.Uri.parse(key).fsPath) === dir) {
+        await this.releaseSibling(vscode.Uri.parse(key));
+      }
+    }
+  }
+
+  /**
+   * A different environment renders to different text, so everything already handed to the server
+   * -- open buffers and pushed siblings alike -- is now wrong. Clearing the cache alone would
+   * leave the server showing the previous environment until each file happened to be edited.
+   */
+  async refreshAll(): Promise<void> {
+    for (const key of [...this.pushed]) {
+      await this.releaseSibling(vscode.Uri.parse(key));
+    }
+    for (const document of vscode.workspace.textDocuments) {
+      if (!this.managed(document) || !hasJinja(document.getText())) {
+        continue;
+      }
+      await this.store.renderDirectoryOf(document.uri);
+      const rendered = this.renderedText(document);
+      if (this.client && rendered) {
+        await this.client.sendNotification(DidChangeTextDocumentNotification.type, {
+          textDocument: { uri: document.uri.toString(), version: document.version },
+          contentChanges: [{ text: rendered }],
+        });
+      }
+      await this.pushSiblings(document);
+    }
+  }
+
   private async releaseSibling(uri: vscode.Uri): Promise<void> {
     const client = this.client;
     const key = uri.toString();
@@ -205,7 +252,8 @@ export class TerroirMiddleware {
           clearTimeout(timer);
           this.debounce.delete(key);
         }
-        return next(document);
+        await next(document);
+        await this.releaseDirectory(path.dirname(document.uri.fsPath), document.uri);
       },
 
       handleDiagnostics: (uri, diagnostics, next) => {
