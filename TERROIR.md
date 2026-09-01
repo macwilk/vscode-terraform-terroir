@@ -87,4 +87,11 @@ About 4% of templates are left unformatted, and the output channel says why for
 each one. The bulk of those are branches that are not valid HCL on their own,
 usually because Jinja is woven into the punctuation around them.
 
+Known limit: terraform-ls resolves `local.*` and `var.*` across files from its own
+module index, and for a handful of modules that index does not pick up a pushed
+buffer no matter how many change events follow. Those show as "No declaration
+found" on a symbol that does exist in the render. Measured flat at the same
+count across 3 and 6 refresh rounds and a 40s settle, so it is a server limit
+rather than a timing one.
+
 Untested: Windows path handling.

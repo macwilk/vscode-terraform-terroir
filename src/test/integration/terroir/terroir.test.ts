@@ -18,8 +18,8 @@ import { activateExtension, getDocUri, open, sleep } from '../../helper';
 suite('terroir', function suite() {
   this.timeout(120000);
 
-  const mainUri = getDocUri('main.tf');
-  const variablesUri = getDocUri('variables.tf');
+  const mainUri = getDocUri(process.env.TERROIR_MAIN ?? 'main.tf');
+  const variablesUri = getDocUri(process.env.TERROIR_VARS ?? 'variables.tf');
   const workspace = path.dirname(mainUri.fsPath);
   const gitMarker = path.join(workspace, '.git');
 

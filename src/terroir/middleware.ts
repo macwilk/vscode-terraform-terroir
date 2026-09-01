@@ -268,7 +268,10 @@ export class TerroirMiddleware {
   build(): Middleware {
     return {
       didOpen: async (document, next) => {
-        if (!this.managed(document) || !hasJinja(document.getText())) {
+        // Not gated on this file containing Jinja. A plain .tf sitting beside templates still
+        // needs them pushed, or the server reads their raw Jinja off disk and the whole module
+        // loses its declarations -- reported as "No declaration found" on the plain file.
+        if (!this.managed(document)) {
           return next(document);
         }
         await this.releaseSibling(document.uri);
@@ -321,8 +324,22 @@ export class TerroirMiddleware {
           next(uri, []);
           return;
         }
+        const renderedLines = doc.rendered.split('\n');
         const mapped: vscode.Diagnostic[] = [];
         for (const diagnostic of diagnostics) {
+          // The server sometimes keeps a diagnostic from its earlier parse of the file on disk.
+          // Anchored to a line that is blank in the text we actually sent, it cannot be
+          // describing that text, so it is left over rather than real. Restricted to
+          // single-line ranges: an unclosed block reports at EOF and spans, and is genuine.
+          const onBlank =
+            diagnostic.range.start.line === diagnostic.range.end.line &&
+            (renderedLines[diagnostic.range.start.line] ?? '').trim() === '';
+          if (onBlank) {
+            this.out.appendLine(
+              `[terroir] dropped a stale diagnostic on a blank line of ${uri.fsPath}: ${diagnostic.message}`,
+            );
+            continue;
+          }
           const start = doc.map.toSource(diagnostic.range.start);
           const end = doc.map.toSource(diagnostic.range.end);
           if (!start) {
