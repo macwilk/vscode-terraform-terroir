@@ -12,7 +12,14 @@ import {
   LanguageClient,
   Middleware,
 } from 'vscode-languageclient/node';
-import { indentJinjaBlocks, isEnabled, isFormatGuardEnabled, isRenderEnabled, renderDebounceMs } from './config';
+import {
+  formatBudgetMs,
+  indentJinjaBlocks,
+  isEnabled,
+  isFormatGuardEnabled,
+  isRenderEnabled,
+  renderDebounceMs,
+} from './config';
 import { hasJinja } from './detect';
 import { safeLineEdits } from './formatEdits';
 import { resolvedTerraform, runTerraformFmt, terraformAvailable } from './hclFormatter';
@@ -262,6 +269,15 @@ export class TerroirMiddleware {
           next(uri, diagnostics);
           return;
         }
+        // Once a template's buffer is released the server re-reads it from disk and reports the
+        // raw Jinja as syntax errors. Nobody is looking at that file; the errors are an artefact
+        // of how it is stored, not a problem with it.
+        const key = uri.toString();
+        const watched = this.pushed.has(key) || vscode.workspace.textDocuments.some((d) => d.uri.toString() === key);
+        if (!watched) {
+          next(uri, []);
+          return;
+        }
         const mapped: vscode.Diagnostic[] = [];
         for (const diagnostic of diagnostics) {
           const start = doc.map.toSource(diagnostic.range.start);
@@ -347,11 +363,18 @@ export class TerroirMiddleware {
       return undefined;
     }
     const source = document.getText();
-    const formatted = await formatTemplate(source, runTerraformFmt, { indentBlocks: indentJinjaBlocks() });
+    let reason = 'terraform fmt rejected the masked template';
+    const formatted = await formatTemplate(source, runTerraformFmt, {
+      indentBlocks: indentJinjaBlocks(),
+      budgetMs: formatBudgetMs(),
+      onDecline: (why) => {
+        reason = why;
+      },
+    });
     if (formatted === undefined) {
       this.out.appendLine(
         terraformAvailable()
-          ? `[terroir] ${document.uri.fsPath}: template could not be formatted directly; falling back`
+          ? `[terroir] ${document.uri.fsPath}: not formatted -- ${reason}; falling back to the rendered file`
           : `[terroir] no terraform binary found; set terraform.terroir.terraformPath to format templates`,
       );
       return undefined;

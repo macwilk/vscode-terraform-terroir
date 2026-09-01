@@ -59,3 +59,7 @@ export function currentEnvironment(fsPath?: string): TerroirEnv {
 export function indentJinjaBlocks(): boolean {
   return config('terraform').get<boolean>('terroir.format.indentBlocks', true);
 }
+
+export function formatBudgetMs(): number {
+  return config('terraform').get<number>('terroir.format.budgetMs', 3000);
+}

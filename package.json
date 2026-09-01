@@ -476,6 +476,12 @@
             },
             "markdownDescription": "Per-stack environment overrides, for repositories whose stacks do not share an environment vocabulary. Each key is a path fragment; the longest one contained in a file's path wins, and `#terraform.terroir.environment#` applies to everything else. Example: `{ \"cloudhesive.capitalrx.com\": \"stagingcloudhesive\" }`."
           },
+          "terraform.terroir.format.budgetMs": {
+            "scope": "window",
+            "type": "number",
+            "default": 3000,
+            "description": "Give up formatting a template after this long. Each conditional branch is formatted separately, so a file with many large branches can take several seconds; raising this recovers those at the cost of waiting."
+          },
           "terraform.terroir.terraformPath": {
             "scope": "window",
             "type": "string",

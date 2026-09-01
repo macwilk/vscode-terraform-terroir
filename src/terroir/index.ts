@@ -104,7 +104,7 @@ class Terroir {
   /** Environment names terroir itself knows about, from `.terroir/settings.json`. */
   private knownEnvironments(): string[] {
     const editor = vscode.window.activeTextEditor;
-    const from = editor ? path.dirname(editor.document.uri.fsPath) : vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    const from = editor ? path.dirname(editor.document.uri.fsPath) : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const root = from ? findTerroirRoot(from) : undefined;
     if (!root?.settingsPath) {
       return [];
@@ -134,9 +134,11 @@ class Terroir {
     if (!picked) {
       return;
     }
-    await vscode.workspace
-      .getConfiguration('terraform')
-      .update('terroir.environment', picked, vscode.ConfigurationTarget.Workspace);
+    // Workspace scope needs a workspace; with a loose file open there is only the global one.
+    const scope = vscode.workspace.workspaceFolders?.length
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+    await vscode.workspace.getConfiguration('terraform').update('terroir.environment', picked, scope);
   }
 
   private renderedContent(uri: vscode.Uri): string {

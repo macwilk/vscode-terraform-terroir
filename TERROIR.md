@@ -62,6 +62,7 @@ extension behaves exactly like upstream and says so.
 | `terraform.terroir.pythonPath` | discovered | interpreter to render with; any Python 3.9+ |
 | `terraform.terroir.renderDebounceMs` | `350` | delay before re-rendering while typing |
 | `terraform.terroir.format.indentBlocks` | `true` | indent block bodies one level inside their tags |
+| `terraform.terroir.format.budgetMs` | `3000` | give up formatting a template after this long |
 | `terraform.terroir.terraformPath` | `terraform` | binary used to format templates |
 | `terraform.terroir.environmentByPath` | `{}` | per-stack environment overrides, longest matching path fragment wins |
 | `terraform.terroir.formatGuard.enable` | `true` | only replay `terraform fmt` edits that cannot touch Jinja (fallback path) |
@@ -82,4 +83,8 @@ added lines in `src/extension.ts` and three array appends in `package.json`.
 tests live in `src/test/integration/terroir/` and run with
 `npx vscode-test --label "Integration Tests - terroir"`.
 
-Untested: multi-root workspaces, and Windows path handling.
+About 4% of templates are left unformatted, and the output channel says why for
+each one. The bulk of those are branches that are not valid HCL on their own,
+usually because Jinja is woven into the punctuation around them.
+
+Untested: Windows path handling.

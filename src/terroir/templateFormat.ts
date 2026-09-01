@@ -274,6 +274,8 @@ export interface FormatOptions {
    * finishing is worse than declining.
    */
   budgetMs?: number;
+  /** Told why a template was left alone, so a decline is explicable rather than mysterious. */
+  onDecline?: (reason: string) => void;
 }
 
 /**
@@ -302,6 +304,9 @@ export async function formatTemplate(
 ): Promise<string | undefined> {
   const unit = options.indentUnit ?? '  ';
   const deadline = Date.now() + (options.budgetMs ?? 3000);
+  const decline = (reason: string): void => {
+    options.onDecline?.(reason);
+  };
   const structure = branches(source);
 
   const spansOf = scan(source);
@@ -321,7 +326,12 @@ export async function formatTemplate(
   if (whole !== undefined) {
     return finish(whole);
   }
-  if (!structure || structure.groups.length === 0) {
+  if (!structure) {
+    decline("the template's Jinja blocks are not balanced");
+    return undefined;
+  }
+  if (structure.groups.length === 0) {
+    decline('terraform fmt rejected the masked template and it has no branches to isolate');
     return undefined;
   }
 
@@ -332,6 +342,7 @@ export async function formatTemplate(
   for (const live of [undefined, ...structure.groups.keys()]) {
     const hidden = (i: number): boolean => structure.branchOf[i] !== undefined && structure.branchOf[i] !== live;
     if (Date.now() > deadline) {
+      decline(`gave up after ${options.budgetMs ?? 3000}ms over ${structure.groups.length} branches`);
       return undefined;
     }
     const out = await formatPass(
@@ -341,10 +352,12 @@ export async function formatTemplate(
       (lines) => lines.map((line, i) => (hidden(i) ? unsuppress(line) : line)),
     );
     if (out === undefined) {
+      decline('terraform fmt rejected a branch in isolation');
       return undefined;
     }
     const outLines = out.split('\n');
     if (outLines.length !== total) {
+      decline('terraform fmt changed the line count, so lines could not be matched up');
       return undefined;
     }
     passes.set(live, outLines);
@@ -357,5 +370,13 @@ export async function formatTemplate(
 
   // Assembled from several passes, so the guarantee has to be re-established against the
   // original source rather than against the merged text itself.
-  return spansOf && conserves(source, merged, spansOf) ? finish(merged) : undefined;
+  if (!spansOf || !conserves(source, merged, spansOf)) {
+    decline('the merged result altered something outside a Jinja span');
+    return undefined;
+  }
+  const done = finish(merged);
+  if (done === undefined) {
+    decline('indenting the blocks altered something outside a Jinja span');
+  }
+  return done;
 }

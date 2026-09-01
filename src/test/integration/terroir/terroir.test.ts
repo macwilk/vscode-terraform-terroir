@@ -169,6 +169,25 @@ suite('terroir', function suite() {
     }
   });
 
+  test('closing a template does not leave raw-Jinja errors behind for it', async () => {
+    await open(mainUri);
+    await open(variablesUri);
+    await sleep(4000);
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    await sleep(5000);
+    for (const uri of [mainUri, variablesUri]) {
+      const syntax = vscode.languages
+        .getDiagnostics(uri)
+        .filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
+        .filter((d) => /Argument or block definition required|Invalid character/.test(d.message));
+      assert.deepStrictEqual(
+        syntax.map((d) => d.message),
+        [],
+        `${path.basename(uri.fsPath)} kept raw-Jinja errors after closing`,
+      );
+    }
+  });
+
   test('hover answers on a line the render kept', async () => {
     await open(mainUri);
     const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
