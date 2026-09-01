@@ -26,14 +26,20 @@ suite('terroir', function suite() {
   suiteSetup(async () => {
     // terroir resolves its root by walking up for `.git`, testing existence rather than
     // directory-ness. A file is enough, and a real one cannot be committed inside this repo.
-    fs.writeFileSync(gitMarker, 'gitdir: /nonexistent\n');
+    // Only the self-contained fixture needs a fake root; a workspace inside a real terroir
+    // checkout already resolves one by walking up, and a marker there would break that.
+    if (fs.existsSync(path.join(workspace, '.terroir', 'config.toml'))) {
+      fs.writeFileSync(gitMarker, 'gitdir: /nonexistent\n');
+    }
     await open(mainUri);
     await activateExtension();
     await sleep(15000);
   });
 
   suiteTeardown(async () => {
-    fs.rmSync(gitMarker, { force: true });
+    if (fs.existsSync(path.join(workspace, '.terroir', 'config.toml'))) {
+      fs.rmSync(gitMarker, { force: true });
+    }
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 
@@ -186,6 +192,22 @@ suite('terroir', function suite() {
         `${path.basename(uri.fsPath)} kept raw-Jinja errors after closing`,
       );
     }
+  });
+
+  test('a template in a directory never opened does not flood the problem list', async () => {
+    // The server indexes the whole workspace, so it parses this file off disk even though
+    // nothing has opened it. Its raw Jinja must not surface as terraform syntax errors.
+    const untouched = vscode.Uri.file(path.join(workspace, 'untouched', 'never_opened.tf'));
+    await open(mainUri);
+    await sleep(8000);
+    const syntax = vscode.languages
+      .getDiagnostics(untouched)
+      .filter((d) => d.severity === vscode.DiagnosticSeverity.Error);
+    assert.deepStrictEqual(
+      syntax.map((d) => `${d.range.start.line + 1}: ${d.message}`),
+      [],
+      'an unopened template reported raw-Jinja errors',
+    );
   });
 
   test('hover answers on a line the render kept', async () => {

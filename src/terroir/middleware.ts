@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: MPL-2.0
  */
 
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
@@ -40,6 +41,7 @@ export class TerroirMiddleware {
   private readonly pushed = new Set<string>();
   private readonly pushedVersions = new Map<string, number>();
   private readonly debounce = new Map<string, NodeJS.Timeout>();
+  private readonly templateCache = new Map<string, { stamp: number; template: boolean }>();
 
   constructor(
     private readonly store: RenderStore,
@@ -48,6 +50,33 @@ export class TerroirMiddleware {
 
   attach(client: LanguageClient): void {
     this.client = client;
+  }
+
+  /**
+   * Whether a URI names a terroir template, answered without an open document. Cached by mtime
+   * because the server publishes diagnostics far more often than files change.
+   */
+  private isTemplateOnDisk(uri: vscode.Uri): boolean {
+    if (!isEnabled() || !isRenderEnabled() || uri.scheme !== 'file' || !uri.fsPath.endsWith('.tf')) {
+      return false;
+    }
+    const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+    if (open) {
+      return hasJinja(open.getText()) && findTerroirRoot(path.dirname(uri.fsPath)) !== undefined;
+    }
+    try {
+      const stamp = fs.statSync(uri.fsPath).mtimeMs;
+      const cached = this.templateCache.get(uri.fsPath);
+      if (cached?.stamp === stamp) {
+        return cached.template;
+      }
+      const template =
+        hasJinja(fs.readFileSync(uri.fsPath, 'utf8')) && findTerroirRoot(path.dirname(uri.fsPath)) !== undefined;
+      this.templateCache.set(uri.fsPath, { stamp, template });
+      return template;
+    } catch {
+      return false;
+    }
   }
 
   private managed(document: vscode.TextDocument): boolean {
@@ -125,11 +154,17 @@ export class TerroirMiddleware {
     }
   }
 
-  /** terraform-ls keeps its disk parse until a change supersedes it. */
+  /**
+   * terraform-ls keeps the parse it made from disk until a change supersedes it -- opening a
+   * document with substituted text is not enough on its own. This applies to the file the user
+   * opened just as much as to the siblings we pushed: without it, a template the server had
+   * already indexed keeps showing the syntax errors of its raw Jinja.
+   */
   private async nudge(uri: vscode.Uri): Promise<void> {
     const client = this.client;
     const key = uri.toString();
-    if (!client || !this.pushed.has(key)) {
+    const open = vscode.workspace.textDocuments.some((d) => d.uri.toString() === key);
+    if (!client || (!this.pushed.has(key) && !open)) {
       return;
     }
     const rendered = this.store.get(uri);
@@ -241,6 +276,9 @@ export class TerroirMiddleware {
         const rendered = this.renderedText(document);
         await next(rendered ? this.asDocument(document, rendered) : document);
         await this.pushSiblings(document);
+        if (rendered) {
+          setTimeout(() => void this.nudge(document.uri), NUDGE_DELAY_MS);
+        }
       },
 
       didChange: async (event, next) => {
@@ -264,14 +302,19 @@ export class TerroirMiddleware {
       },
 
       handleDiagnostics: (uri, diagnostics, next) => {
-        const doc = this.store.get(uri);
-        if (!doc) {
+        // The server indexes every .tf it can find, so it parses templates we have never
+        // rendered -- most of them, in a large repository -- and reports the Jinja as syntax
+        // errors. Whether a file is a template has to be settled BEFORE asking whether we hold a
+        // render for it, or every unopened template floods the problems list.
+        if (!this.isTemplateOnDisk(uri)) {
           next(uri, diagnostics);
           return;
         }
-        // Once a template's buffer is released the server re-reads it from disk and reports the
-        // raw Jinja as syntax errors. Nobody is looking at that file; the errors are an artefact
-        // of how it is stored, not a problem with it.
+        const doc = this.store.get(uri);
+        if (!doc) {
+          next(uri, []);
+          return;
+        }
         const key = uri.toString();
         const watched = this.pushed.has(key) || vscode.workspace.textDocuments.some((d) => d.uri.toString() === key);
         if (!watched) {
@@ -428,6 +471,7 @@ export class TerroirMiddleware {
     }
     this.debounce.clear();
     this.pushed.clear();
+    this.templateCache.clear();
     this.pushedVersions.clear();
   }
 }
